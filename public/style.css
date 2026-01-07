@@ -114,7 +114,7 @@ body {
     z-index: 10;
 }
 
-.chat-bubble:hover .bubble-add-btn {
+.chat-bubble.show-actions .bubble-add-btn {
     opacity: 1;
     right: -130px;
 }
@@ -130,7 +130,7 @@ body {
     left: -120px;
 }
 
-.chat-bubble.user:hover .bubble-add-btn {
+.chat-bubble.user.show-actions .bubble-add-btn {
     right: auto;
     left: -130px;
 }

@@ -195,6 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (settingsMenu && !settingsMenu.classList.contains('hidden') && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
             settingsMenu.classList.add('hidden');
         }
+        
+        // Close active chat bubbles when clicking outside
+        document.querySelectorAll('.chat-bubble.show-actions').forEach(b => {
+            b.classList.remove('show-actions');
+        });
     });
 
     const editPromptItem = document.getElementById('editPromptMenuItem');
@@ -238,12 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sessionClearBtn) sessionClearBtn.addEventListener('click', handleSessionClear);
     if (viewContentBtn) viewContentBtn.addEventListener('click', openContentModal);
     
-    // Send Button
-    const sendBtn = document.getElementById('sendBtn');
-    if (sendBtn) sendBtn.addEventListener('click', () => {
-        console.log('[Send Button] Clicked');
-        handleChatAI();
-    });
+
     
     // 10. プロパティセクション折りたたみ
     const togglePropsBtn = document.getElementById('togglePropsBtn');
@@ -396,12 +396,36 @@ function renderChatHistory() {
         
         // ユーザーまたはAIメッセージにホバーボタンを追加
         if (entry.type === 'user' || entry.type === 'ai') {
+            // Tap to show "Add to Notion"
+            bubble.style.cursor = 'pointer';
+            bubble.onclick = (e) => {
+                // Don't toggle if selecting text
+                if (window.getSelection().toString().length > 0) return;
+                
+                // Don't toggle if clicking a link/button inside (except this bubble's container)
+                if (e.target.tagName === 'A') return;
+
+                // Close other open bubbles
+                const wasShown = bubble.classList.contains('show-actions');
+                document.querySelectorAll('.chat-bubble.show-actions').forEach(b => {
+                    b.classList.remove('show-actions');
+                });
+
+                if (!wasShown) {
+                    bubble.classList.add('show-actions');
+                }
+                
+                e.stopPropagation(); // Prevent document click from closing it
+            };
+
             const addBtn = document.createElement('button');
             addBtn.className = 'bubble-add-btn';
             addBtn.textContent = 'Notionに追加';
             addBtn.onclick = (e) => {
                 e.stopPropagation();
                 handleAddFromBubble(entry);
+                // Optional: remove class after adding?
+                // bubble.classList.remove('show-actions'); 
             };
             bubble.appendChild(addBtn);
         }
