@@ -1265,15 +1265,26 @@ function openPromptModal() {
     const targetNameSpan = document.getElementById('modalTargetName');
     const textarea = document.getElementById('promptTextarea');
     const saveBtn = document.getElementById('savePromptBtn');
+    const resetBtn = document.getElementById('resetPromptBtn');
     
     // ターゲット名を表示
     targetNameSpan.textContent = currentTargetName;
     
-    // 現在のサーバー保存値を使用
-    const currentPrompt = currentSystemPrompt;
+    // Check if custom prompt exists in localStorage
+    const promptKey = `${LOCAL_PROMPT_PREFIX}${currentTargetId}`;
+    const savedPrompt = localStorage.getItem(promptKey);
     
-    // 値がなければデフォルトを表示
-    textarea.value = currentPrompt !== null && currentPrompt !== undefined ? currentPrompt : DEFAULT_SYSTEM_PROMPT;
+    // Show/hide reset button based on whether custom prompt exists
+    if (resetBtn) {
+        if (savedPrompt) {
+            resetBtn.classList.remove('hidden');
+        } else {
+            resetBtn.classList.add('hidden');
+        }
+    }
+    
+    // Display current prompt or default
+    textarea.value = currentSystemPrompt || DEFAULT_SYSTEM_PROMPT;
     textarea.disabled = false;
     saveBtn.disabled = false;
     
@@ -1291,24 +1302,35 @@ async function saveSystemPrompt() {
 
     const textarea = document.getElementById('promptTextarea');
     const saveBtn = document.getElementById('savePromptBtn');
+    const resetBtn = document.getElementById('resetPromptBtn');
     const newPrompt = textarea.value.trim();
     
     saveBtn.disabled = true;
     
     try {
-        // localStorageに保存
+        // Only save to localStorage if different from default
         const promptKey = `${LOCAL_PROMPT_PREFIX}${currentTargetId}`;
         
-        if (newPrompt) {
-             localStorage.setItem(promptKey, newPrompt);
+        if (newPrompt && newPrompt !== DEFAULT_SYSTEM_PROMPT) {
+            // Save custom prompt
+            localStorage.setItem(promptKey, newPrompt);
+            currentSystemPrompt = newPrompt;
+            
+            // Show reset button
+            if (resetBtn) {
+                resetBtn.classList.remove('hidden');
+            }
         } else {
-             // 空の場合は削除（デフォルトに戻す）
-             localStorage.removeItem(promptKey);
+            // Remove custom prompt (use default)
+            localStorage.removeItem(promptKey);
+            currentSystemPrompt = null;
+            
+            // Hide reset button
+            if (resetBtn) {
+                resetBtn.classList.add('hidden');
+            }
         }
         
-        currentSystemPrompt = newPrompt || null; // null if empty
-        
-        closePromptModal();
         showToast('✅ システムプロンプトを保存しました');
     } catch (e) {
         console.error('Failed to save prompt:', e);
@@ -1319,6 +1341,29 @@ async function saveSystemPrompt() {
     }
 }
 
+function resetSystemPrompt() {
+    if (!currentTargetId) return;
+    
+    const promptKey = `${LOCAL_PROMPT_PREFIX}${currentTargetId}`;
+    localStorage.removeItem(promptKey);
+    currentSystemPrompt = null;
+    
+    // Update textarea to show default
+    const textarea = document.getElementById('promptTextarea');
+    if (textarea) {
+        textarea.value = DEFAULT_SYSTEM_PROMPT;
+    }
+    
+    // Hide reset button
+    const resetBtn = document.getElementById('resetPromptBtn');
+    if (resetBtn) {
+        resetBtn.classList.add('hidden');
+    }
+    
+    showToast('✅ デフォルトに戻しました');
+}
+
+
 // イベントリスナー登録
 document.addEventListener('DOMContentLoaded', () => {
     // 既存のDOMContentLoadedとは別に実行される
@@ -1326,12 +1371,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalBtn = document.getElementById('closeModalBtn');
     const cancelPromptBtn = document.getElementById('cancelPromptBtn');
     const savePromptBtn = document.getElementById('savePromptBtn');
+    const resetPromptBtn = document.getElementById('resetPromptBtn');
     const promptModal = document.getElementById('promptModal');
 
     if (editPromptBtn) editPromptBtn.addEventListener('click', openPromptModal);
     if (closeModalBtn) closeModalBtn.addEventListener('click', closePromptModal);
     if (cancelPromptBtn) cancelPromptBtn.addEventListener('click', closePromptModal);
     if (savePromptBtn) savePromptBtn.addEventListener('click', saveSystemPrompt);
+    if (resetPromptBtn) resetPromptBtn.addEventListener('click', resetSystemPrompt);
+
 
     // モーダル外クリックで閉じる
     if (promptModal) {

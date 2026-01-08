@@ -9,6 +9,12 @@ from typing import Dict, Any, Optional, List
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Backport for Python 3.8 or older if needed, though 3.9+ has zoneinfo
+    from backports.zoneinfo import ZoneInfo
 
 from contextlib import asynccontextmanager
 import httpx
@@ -67,7 +73,21 @@ def sanitize_image_data(text: str) -> str:
     text = re.sub(r'<img[^>]+src=["\']data:image\/[^"\']+["\'][^>]*>', '', text, flags=re.DOTALL)
     # Remove image markers
     text = text.replace("[画像送信]", "").strip()
+    text = text.replace("[画像送信]", "").strip()
     return text
+
+def get_current_jst_str() -> str:
+    """
+    Returns current time in JST with Japanese day of week.
+    Format: YYYY-MM-DD HH:MM (YYYY年MM月DD日 HH:MM JST) <DayOfWeek>
+    """
+    jst = ZoneInfo("Asia/Tokyo")
+    now = datetime.now(jst)
+    weekdays = ["月", "火", "水", "木", "金", "土", "日"]
+    weekday_str = weekdays[now.weekday()]
+    
+    # Generic simplified format for AI
+    return f"{now.strftime('%Y-%m-%d %H:%M')} ({now.strftime('%Y年%m月%d日 %H:%M')} JST) {weekday_str}曜日"
 
 # --- Pydantic Models ---
 class AnalyzeRequest(BaseModel):
@@ -310,6 +330,10 @@ async def analyze(request: AnalyzeRequest):
     if not system_prompt:
         system_prompt = "You are a helpful assistant." # Fallback just in case
 
+    # Inject Date/Time Context
+    current_time_str = get_current_jst_str()
+    system_prompt = f"Current Time: {current_time_str}\n\n{system_prompt}"
+
     # 3. Call AI
     try:
         # Call updated function
@@ -390,7 +414,13 @@ async def chat_endpoint(request: ChatRequest):
              # Basic default if missing
              system_prompt = """優秀な秘書として、ユーザーのタスクを明確にする手伝いをすること。
 明確な実行できる タスク名に言い換えて。先頭に的確な絵文字を追加して
-画像の場合は、そこから何をしようとしているのか推定して、タスクにして。"""
+画像の場合は、そこから何をしようとしているのか推定して、タスクにして。
+応答は端的に、TODO名やタスク名としてのみ出力すること。
+"""
+        
+        # Inject Date/Time Context
+        current_time_str = get_current_jst_str()
+        system_prompt = f"Current Time: {current_time_str}\n\n{system_prompt}"
         
         # 参考情報を会話履歴の先頭に追加
         session_history = request.session_history or []
@@ -693,4 +723,6 @@ async def get_database_content(database_id: str):
 
 # Serve static files from the public directory at the root
 # We mount this LAST so that any defined routes (like /api/*) take precedence.
-app.mount("/", StaticFiles(directory="public", html=True), name="static")
+# Only mount static files in local development, not on Vercel
+if not os.environ.get("VERCEL"):
+    app.mount("/", StaticFiles(directory="public", html=True), name="static")
